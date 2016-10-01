@@ -16,21 +16,15 @@ package X
 */
 import "C"
 
+import (
+	"bytes"
+	"encoding/binary"
+	"unsafe"
+)
+
 type Display C.Display
 type Window C.Window
 type Event C.XEvent
-
-func Sync(display *Display, discard bool) int {
-	if discard {
-		return int(C.XSync((*C.Display)(display), C.Bool(1)))
-	} else {
-		return int(C.XSync((*C.Display)(display), C.Bool(0)))
-	}
-}
-
-func NextEvent(display *Display, event *Event) int {
-	return int(C.XNextEvent((*C.Display)(display), (*C.XEvent)(event)))
-}
 
 func OpenDisplay(displayName *string) *Display {
 	var cDisplayName *C.char;
@@ -43,15 +37,35 @@ func OpenDisplay(displayName *string) *Display {
 	return (*Display)(C.XOpenDisplay(cDisplayName));
 }
 
-func CloseDisplay(display *Display) int {
+func (display *Display) CloseDisplay() int {
 	return int(C.XCloseDisplay(display));
+}
+
+func (display *Display) Sync(discard bool) int {
+	if discard {
+		return int(C.XSync((*C.Display)(display), C.Bool(1)))
+	} else {
+		return int(C.XSync((*C.Display)(display), C.Bool(0)))
+	}
+}
+
+func (display *Display) NextEvent(event *Event) int {
+	return int(C.XNextEvent((*C.Display)(display), (*C.XEvent)(event)))
+}
+
+func (display *Display) SelectInput(window Window, eventMask int64) int {
+	return int(C.XSelectInput(
+		(*C.Display)(display), (C.Window)(window), C.long(eventMask)))
+}
+
+func (event Event) EventType() int {
+	var eventType C.int
+	binary.Read(
+		bytes.NewBuffer(event[:unsafe.Sizeof(eventType)]),
+		binary.LittleEndian, &eventType)
+	return int(eventType)
 }
 
 func SupportsLocale() int {
 	return int(C.XSupportsLocale())
-}
-
-func SelectInput(display *Display, window Window, eventMask int64) int {
-	return int(C.XSelectInput(
-		(*C.Display)(display), (C.Window)(window), C.long(eventMask)))
 }
